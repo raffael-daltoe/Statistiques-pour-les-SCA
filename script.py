@@ -196,7 +196,7 @@ def LeakageAss(Folder,noctet,nfig,nbtraces):
     return()
 '''
 
-def LeakageAss(Folder,noctet,nfig,nbtraces):
+def LeakageAssCPA(Folder,noctet,nfig,nbtraces):
     FileList=CreateFileList_trc(Folder)
     Key,Pti,Cto,Data,K1,K10=ReadTRACESbin(Folder,FileList,0)
     
@@ -207,31 +207,34 @@ def LeakageAss(Folder,noctet,nfig,nbtraces):
     Ysq=np.zeros(256,dtype='float')          # raiz quadrada de Y
     VX = np.zeros(len(Data),dtype='float')
     VY = np.zeros(256,dtype='float')
-    CovXY =np.zeros(256,len(Data),dtype='float')
-    CorXY =np.zeros(256,len(Data),dtype='float')
+    CovXY =np.zeros((256,len(Data)),dtype='float')
+    CorXY =np.zeros((256,len(Data)),dtype='float')
     
     HW=IVSBOXptixork()
     
-    for i in range(len(FileList)):
+    for i in range(nbtraces):
         Key,Pti,Cto,Data,K1,K10=ReadTRACESbin(Folder,FileList,i)
         Data = np.asarray(Data).astype('float')
         X+=Data
         Xsq+=Data**2
-        Y+=HW[Pti[noctet],K1[noctet]]
-        Ysq+=HW[Pti[noctet],K1[noctet]]**2
-        XY+=HW[Pti[noctet],K1[noctet]]*np.asarray(Data)
-        
+        for k in range(256):
+            Y[k]+=HW[Pti[noctet],k]
+            Ysq[k]+=HW[Pti[noctet],k]**2
+            XY[k,:]+=HW[Pti[noctet],k]*Data
+            
         if i>0 and i%100==0:
-            print('Tratamento do grafico numero: ' + str(i))
+            print('Traitement de la trace n ' + str(i))
             VX=Xsq/(i+1) - (X/(i+1))**2
             VY=Ysq/(i+1) - (Y/(i+1))**2
-            CovXY = (XY)/(i+1) - (X/(i+1)) * (Y/(i+1))
-            CorXY=CovXY/(VX*VY)**0.5
-    plt.figure(nfig)
-    plt.plot(CorXY)
-        
-    plt.show()        
-    return()
+            
+            for l in range(256):
+                CovXY[l,:]=(XY[l,:])/(i+1) - (X/(i+1))*(Y[l]/(i+1))
+                CorXY[l,:]=CovXY[l,:]/(VX*VY[l])**0.5
+            CorrMax=np.max(abs(CorXY),axis=1)
+            keyfound = np.argmax(CorrMax)
+            print('clé identifiée = ' + str(keyfound))
+            print('clé réel ' + str(K1[noctet]))
+    return(keyfound,K1[noctet],CorXY)
 
 def DPA(Folder,noctect,nfig=1,nbtraces=1000):
     FileList=CreateFileList_trc(Folder)
@@ -313,4 +316,9 @@ plt.plot(DoM[TrueKey],'bo')
 
 plt.show()
 '''
-LeakageAss(Folder,1,nfig=1,nbtraces=5000)
+
+Keyfound, TrueKey, CorXY = LeakageAssCPA(Folder,1,nfig=1,nbtraces=5000)
+plt.plot(np.transpose(CorXY),'k')
+plt.plot((CorXY[Keyfound]),'g+')
+plt.plot((CorXY[TrueKey]),'r')
+plt.show()
